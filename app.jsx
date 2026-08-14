@@ -45,6 +45,29 @@ const toMercX = (lng) => (lng * MERC) / 180;
 const toMercY = (lat) =>
   (Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180)) * (MERC / 180);
 
+const TILESETS = {
+  clean: {
+    n: "Clean 2D",
+    max: 20,
+    credit: "© OpenStreetMap contributors, © CARTO",
+    url: (z, x, y) => `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}@2x.png`,
+  },
+  street: {
+    n: "Street",
+    max: 19,
+    credit: "Esri, HERE, Garmin, OpenStreetMap contributors",
+    url: (z, x, y) =>
+      `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`,
+  },
+  satellite: {
+    n: "Satellite",
+    max: 19,
+    credit: "Esri, Maxar, Earthstar Geographics",
+    url: (z, x, y) =>
+      `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
+  },
+};
+
 function computeNode(p) {
   const islandD = p.icd - 2 * p.w;
   const seatingD = islandD - 2 * p.apron;
@@ -146,6 +169,7 @@ function RoundaboutNodeCalculator() {
     lng: -73.98195,
     site: "Columbus Circle, New York",
     showImagery: true,
+    style: "clean",
     imgOpacity: 0.85,
     apiKey: "",
   });
@@ -214,23 +238,31 @@ function RoundaboutNodeCalculator() {
       );
       const mpp = (156543.03392 * cos) / Math.pow(2, z) / 2;
       const side = mpp * 1280 * pk;
+      const styles =
+        p.style === "satellite"
+          ? "&maptype=satellite"
+          : "&maptype=roadmap" +
+            ["feature:poi|visibility:off", "feature:transit|visibility:off"]
+              .map((s) => `&style=${encodeURIComponent(s)}`)
+              .join("");
       return {
         tiles: [
           {
             k: "g",
-            url: `https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=${z}&size=640x640&scale=2&maptype=satellite&key=${encodeURIComponent(key)}`,
+            url: `https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=${z}&size=640x640&scale=2${styles}&key=${encodeURIComponent(key)}`,
             x: PW / 2 - side / 2,
             y: PW / 2 - side / 2,
             size: side,
           },
         ],
-        credit: "Imagery: Google",
+        credit: "Google",
         z,
         mpp,
       };
     }
 
-    let z = Math.max(1, Math.min(19, Math.ceil(Math.log2(156543.03392 * cos * pk))));
+    const ts = TILESETS[p.style] || TILESETS.clean;
+    let z = Math.max(1, Math.min(ts.max, Math.ceil(Math.log2(156543.03392 * cos * pk))));
     let mpp, halfPx, cx, cy, tx0, tx1, ty0, ty1;
     for (;;) {
       const worldPx = 256 * Math.pow(2, z);
@@ -251,16 +283,16 @@ function RoundaboutNodeCalculator() {
     for (let tx = tx0; tx <= tx1; tx++) {
       for (let ty = ty0; ty <= ty1; ty++) {
         tiles.push({
-          k: `${z}/${tx}/${ty}`,
-          url: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}`,
+          k: `${p.style}/${z}/${tx}/${ty}`,
+          url: ts.url(z, tx, ty),
           x: PW / 2 + (tx * 256 - cx) * svgPerTilePx,
           y: PW / 2 + (ty * 256 - cy) * svgPerTilePx,
           size: 256 * svgPerTilePx,
         });
       }
     }
-    return { tiles, credit: "Imagery: Esri, Maxar, Earthstar Geographics", z, mpp };
-  }, [p.lat, p.lng, p.apiKey, frameR, pk]);
+    return { tiles, credit: ts.credit, z, mpp };
+  }, [p.lat, p.lng, p.apiKey, p.style, frameR, pk]);
 
   const sweep = SWEEP.map((icd) => {
     const q = computeNode({ ...p, icd });
@@ -415,6 +447,26 @@ function RoundaboutNodeCalculator() {
                   </label>
                 ))}
               </div>
+              <div style={{ display: "flex", gap: 0, marginTop: 10 }}>
+                {Object.entries(TILESETS).map(([id, t]) => (
+                  <button
+                    key={id}
+                    onClick={() => set("style")(id)}
+                    style={{
+                      flex: 1,
+                      fontFamily: MONO,
+                      fontSize: 10,
+                      padding: "6px 2px",
+                      border: `1px solid ${p.style === id ? MAG : RULE}`,
+                      background: p.style === id ? MAG : "transparent",
+                      color: p.style === id ? FILM2 : INK,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t.n}
+                  </button>
+                ))}
+              </div>
               <label
                 style={{
                   display: "flex",
@@ -432,15 +484,15 @@ function RoundaboutNodeCalculator() {
                   onChange={(e) => set("showImagery")(e.target.checked)}
                   style={{ accentColor: MAG }}
                 />
-                Show satellite imagery
+                Show basemap
               </label>
-              <Field label="Imagery opacity" unit="" value={p.imgOpacity} min={0.15} max={1} step={0.05} onChange={set("imgOpacity")} />
+              <Field label="Basemap opacity" unit="" value={p.imgOpacity} min={0.15} max={1} step={0.05} onChange={set("imgOpacity")} />
               <label style={{ fontFamily: SANS, fontSize: 11, color: RULE, display: "block" }}>
                 Google Maps API key (optional)
                 <input
                   type="password"
                   value={p.apiKey}
-                  placeholder="leave blank to use Esri imagery"
+                  placeholder="leave blank to use keyless basemaps"
                   onChange={(e) => set("apiKey")(e.target.value)}
                   style={{
                     width: "100%",
