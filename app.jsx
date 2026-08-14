@@ -69,6 +69,11 @@ const RING_PROGRAMS = [
 
 const SWEEP = [12, 18, 25, 35, 50, 70, 100, 140];
 
+const SEATING = [
+  { id: "bleacher", n: "Bleachers", sub: '30" tread · 12" riser · 20" seat', rowDepth: 0.762, riser: 0.3048, seatW: 0.508 },
+  { id: "chair", n: "Individual chairs", sub: '36" tread · 12" riser · 22" seat', rowDepth: 0.9144, riser: 0.3048, seatW: 0.5588 },
+];
+
 const SITES = [
   { n: "Columbus Circle", c: "New York", lat: 40.76808, lng: -73.98195, icd: 116, w: 18 },
   { n: "Buckingham Fountain", c: "Chicago", lat: 41.87587, lng: -87.61895, icd: 100, w: 10 },
@@ -133,24 +138,30 @@ function computeNode(p) {
   for (let i = 0; i < p.rows; i++) {
     const ro = r0 - i * p.rowDepth;
     if (ro < 2.4) break;
+    const Dn = D1 + i * p.rowDepth;
+    let cVal = null;
     if (i > 0) {
-      const Dn = D1 + i * p.rowDepth;
-      h = ((h + C) * Dn) / (Dn - p.rowDepth);
+      const prev = h;
+      h = p.bankMode === "riser" ? prev + p.riser : ((prev + C) * Dn) / (Dn - p.rowDepth);
+      cVal = (h * (Dn - p.rowDepth)) / Dn - prev;
     }
     const seats = Math.floor(((2 * Math.PI * (ro - p.rowDepth / 2)) / p.seatW) * 0.85);
     rows.push({
       i: i + 1,
       ro,
       ri: ro - p.rowDepth,
-      D: D1 + i * p.rowDepth,
+      D: Dn,
       eye: h,
       deck: h - 1.15,
       riser: i === 0 ? h - p.eye1 : h - rows[i - 1].eye,
+      c: cVal,
       seats,
     });
   }
   const cap = rows.reduce((a, r) => a + r.seats, 0);
   const maxRiser = rows.reduce((a, r) => Math.max(a, r.riser), 0);
+  const cs = rows.filter((x) => x.c !== null).map((x) => x.c);
+  const minC = cs.length ? Math.min(...cs) : null;
   const top = rows.length ? rows[rows.length - 1] : null;
   const islandArea = (Math.PI * seatingD * seatingD) / 4;
   return {
@@ -160,6 +171,7 @@ function computeNode(p) {
     rows,
     cap,
     maxRiser,
+    minC,
     top,
     islandArea,
     standing: Math.floor(islandArea / 0.4),
@@ -236,11 +248,14 @@ function RoundaboutNodeCalculator() {
     setback: 14,
     facade: 40,
     focus: "near",
+    bankMode: "riser",
+    seatType: "bleacher",
+    riser: 0.3048,
     targetC: 90,
     rows: 14,
-    rowDepth: 0.85,
+    rowDepth: 0.762,
     eye1: 1.4,
-    seatW: 0.5,
+    seatW: 0.508,
     lat: 40.76808,
     lng: -73.98195,
     site: "Columbus Circle",
@@ -574,14 +589,73 @@ function RoundaboutNodeCalculator() {
               </label>
               <Field label="Basemap opacity" value={p.imgOpacity} min={0.15} max={1} step={0.05} kind="plain" onChange={set("imgOpacity")} />
 
-              <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", margin: "18px 0 12px" }}>
+              <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", margin: "18px 0 10px" }}>
                 Bank
               </div>
-              <Field label="Target C-value" value={p.targetC} min={30} max={150} step={5} kind="mm" imp={imp} onChange={set("targetC")} />
+              {SEATING.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() =>
+                    setP((v) => ({
+                      ...v,
+                      seatType: s.id,
+                      rowDepth: s.rowDepth,
+                      riser: s.riser,
+                      seatW: s.seatW,
+                      bankMode: "riser",
+                    }))
+                  }
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    textAlign: "left",
+                    fontFamily: MONO,
+                    fontSize: 10,
+                    lineHeight: 1.45,
+                    padding: "5px 8px",
+                    marginBottom: 4,
+                    border: `1px solid ${p.seatType === s.id ? MAG : RULE}`,
+                    background: p.seatType === s.id ? MAG : "transparent",
+                    color: p.seatType === s.id ? FILM2 : INK,
+                    cursor: "pointer",
+                  }}
+                >
+                  {s.n}
+                  <span style={{ display: "block", opacity: 0.7 }}>{s.sub}</span>
+                </button>
+              ))}
+              <div style={{ display: "flex", gap: 0, margin: "8px 0 12px" }}>
+                {[
+                  ["riser", "Fixed riser"],
+                  ["c", "Fixed C-value"],
+                ].map(([id, t]) => (
+                  <button
+                    key={id}
+                    onClick={() => setP((v) => ({ ...v, bankMode: id, seatType: id === "c" ? "custom" : v.seatType }))}
+                    style={{
+                      flex: 1,
+                      fontFamily: MONO,
+                      fontSize: 10,
+                      padding: "6px 4px",
+                      border: `1px solid ${p.bankMode === id ? MAG : RULE}`,
+                      background: p.bankMode === id ? MAG : "transparent",
+                      color: p.bankMode === id ? FILM2 : INK,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              {p.bankMode === "riser" ? (
+                <Field label="Riser height" value={p.riser} min={0.15} max={0.61} step={0.005} impStep={0.5} imp={imp} onChange={(v) => setP((s) => ({ ...s, riser: v, seatType: "custom" }))} />
+              ) : (
+                <Field label="Target C-value" value={p.targetC} min={30} max={150} step={5} kind="mm" imp={imp} onChange={set("targetC")} />
+              )}
               <Field label="Rows" value={p.rows} min={2} max={40} step={1} kind="plain" onChange={set("rows")} />
-              <Field label="Row depth" value={p.rowDepth} min={0.7} max={1.1} step={0.05} impStep={1} imp={imp} onChange={set("rowDepth")} />
+              <Field label="Tread / row depth" value={p.rowDepth} min={0.6} max={1.2} step={0.01} impStep={1} imp={imp} onChange={(v) => setP((s) => ({ ...s, rowDepth: v, seatType: "custom" }))} />
               <Field label="Front row eye height" value={p.eye1} min={0.9} max={3} step={0.05} impStep={1} imp={imp} onChange={set("eye1")} />
-              <Field label="Seat width" value={p.seatW} min={0.45} max={0.62} step={0.01} impStep={0.5} imp={imp} onChange={set("seatW")} />
+              <Field label="Seat width" value={p.seatW} min={0.4} max={0.65} step={0.005} impStep={0.5} imp={imp} onChange={(v) => setP((s) => ({ ...s, seatW: v, seatType: "custom" }))} />
 
               <div style={{ fontFamily: SANS, fontSize: 12, marginTop: 6 }}>Point of focus</div>
               <div style={{ display: "flex", gap: 0, marginTop: 6 }}>
@@ -751,7 +825,7 @@ function RoundaboutNodeCalculator() {
                           ? "basemap request failed"
                           : "basemap loading"}
                       </span>{" "}
-                      · build 10
+                      · build 11
                       <br />
                       {basemap.credit}
                     </div>
@@ -776,8 +850,22 @@ function RoundaboutNodeCalculator() {
                 <Metric label="Rows achieved" value={r.rows.length} unit={`of ${p.rows}`} flag={r.rows.length < p.rows} />
                 <Metric label="Top deck height" value={r.top ? L(r.top.deck) : "—"} unit={LU} />
                 <Metric label="Steepest riser" value={r.maxRiser ? L(r.maxRiser) : "—"} unit={LU} flag={r.maxRiser > 0.55} />
+                <Metric
+                  label="Worst C-value achieved"
+                  value={r.minC === null ? "—" : imp ? inchOnly(r.minC) : Math.round(r.minC * 1000)}
+                  unit={r.minC === null ? "" : imp ? "" : "mm"}
+                  flag={r.minC !== null && r.minC < 0.06}
+                />
                 <Metric label="Standing crowd, centre-stage mode" value={r.standing.toLocaleString()} unit="people" />
                 <Metric label="Track area" value={A(r.trackArea)} unit={AU} />
+                {p.bankMode === "riser" && r.minC !== null && r.minC < 0.06 && (
+                  <div style={{ fontFamily: SANS, fontSize: 11, color: AMB, marginTop: 8, lineHeight: 1.5 }}>
+                    A fixed {imp ? inchOnly(p.riser) : Math.round(p.riser * 1000) + " mm"} riser drops C below
+                    60 mm in the front rows — spectators there see over the head in front only marginally.
+                    Deepen the tread, raise the front row off the road, or switch to Fixed C-value to see
+                    the rake the sightline actually wants.
+                  </div>
+                )}
                 {r.maxRiser > 0.55 && (
                   <div style={{ fontFamily: SANS, fontSize: 11, color: AMB, marginTop: 8, lineHeight: 1.5 }}>
                     Riser exceeds {imp ? "1'-10\"" : "0.55 m"}. Lower the target C-value, deepen the rows, or lift the front
@@ -827,8 +915,9 @@ function RoundaboutNodeCalculator() {
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", marginBottom: 8 }}>
                 Rake schedule
                 <span style={{ fontFamily: MONO, fontSize: 11, color: MAG, marginLeft: 10 }}>
-                  C = {imp ? inchOnly(p.targetC / 1000) : `${p.targetC} mm`} held constant to the{" "}
-                  {p.focus === "far" ? "far" : "near"} kerb
+                  {p.bankMode === "riser"
+                    ? `Fixed ${imp ? inchOnly(p.riser) : Math.round(p.riser * 1000) + " mm"} riser · C-value reported per row to the ${p.focus === "far" ? "far" : "near"} kerb`
+                    : `C = ${imp ? inchOnly(p.targetC / 1000) : p.targetC + " mm"} held constant to the ${p.focus === "far" ? "far" : "near"} kerb`}
                 </span>
               </div>
               <div style={{ overflowX: "auto" }}>
@@ -839,6 +928,7 @@ function RoundaboutNodeCalculator() {
                       <th>Radius {LU}</th>
                       <th>D to focus {LU}</th>
                       <th>Riser {LU}</th>
+                      <th>C {imp ? "in" : "mm"}</th>
                       <th>Deck {LU}</th>
                       <th>Eye {LU}</th>
                       <th>Seats</th>
@@ -851,6 +941,9 @@ function RoundaboutNodeCalculator() {
                         <td>{L(row.ro)}</td>
                         <td>{L(row.D)}</td>
                         <td style={{ color: row.riser > 0.55 ? AMB : INK }}>{L(row.riser)}</td>
+                        <td style={{ color: row.c !== null && row.c < 0.06 ? AMB : INK }}>
+                          {row.c === null ? "—" : imp ? inchOnly(row.c) : Math.round(row.c * 1000)}
+                        </td>
                         <td>{L(row.deck)}</td>
                         <td>{L(row.eye)}</td>
                         <td>{row.seats}</td>
