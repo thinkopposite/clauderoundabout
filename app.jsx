@@ -411,28 +411,24 @@ function RoundaboutNodeCalculator() {
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ display: "flex", gap: 0, justifyContent: "flex-end", marginBottom: 6 }}>
-              {[
-                ["si", "Metric"],
-                ["imp", "ft-in"],
-              ].map(([id, t]) => (
-                <button
-                  key={id}
-                  onClick={() => set("units")(id)}
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 10,
-                    padding: "5px 12px",
-                    border: `1px solid ${p.units === id ? INK : RULE}`,
-                    background: p.units === id ? INK : "transparent",
-                    color: p.units === id ? FILM : INK,
-                    cursor: "pointer",
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => set("units")(p.units === "imp" ? "si" : "imp")}
+              title="Switch unit system"
+              style={{
+                fontFamily: MONO,
+                fontSize: 11,
+                padding: "7px 14px",
+                marginBottom: 8,
+                border: `1px solid ${INK}`,
+                background: INK,
+                color: FILM,
+                cursor: "pointer",
+                letterSpacing: 0.3,
+              }}
+            >
+              {p.units === "imp" ? "FT-IN" : "METRIC"}
+              <span style={{ opacity: 0.55 }}> · switch</span>
+            </button>
             <div style={{ fontFamily: MONO, fontSize: 10, color: RULE }}>
               BREAK THE BOWL
               <br />
@@ -759,7 +755,7 @@ function RoundaboutNodeCalculator() {
                           ? "basemap request failed"
                           : "basemap loading"}
                       </span>{" "}
-                      · build 8
+                      · build 9
                       <br />
                       {basemap.credit}
                     </div>
