@@ -12,6 +12,42 @@ const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 const SANS = "'IBM Plex Sans', system-ui, sans-serif";
 const DISP = "'Saira Condensed', 'IBM Plex Sans', sans-serif";
 
+const IN_PER_M = 39.3700787402;
+const FT_PER_M = 3.2808398950;
+const SQFT_PER_SQM = 10.7639104167;
+
+const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+
+function ftIn(m, denom = 8) {
+  const total = m * IN_PER_M;
+  const sign = total < 0 ? "-" : "";
+  let t = Math.abs(total);
+  let ft = Math.floor(t / 12);
+  let n = Math.round((t - ft * 12) * denom);
+  if (n >= 12 * denom) {
+    ft += 1;
+    n = 0;
+  }
+  const whole = Math.floor(n / denom);
+  const rem = n - whole * denom;
+  let frac = "";
+  if (rem) {
+    const d = gcd(rem, denom);
+    frac = ` ${rem / d}/${denom / d}`;
+  }
+  return `${sign}${ft}'-${whole}${frac}"`;
+}
+
+function inchOnly(m, denom = 16) {
+  const t = m * IN_PER_M;
+  const n = Math.round(t * denom);
+  const whole = Math.floor(n / denom);
+  const rem = n - whole * denom;
+  if (!rem) return `${whole}"`;
+  const d = gcd(rem, denom);
+  return `${whole} ${rem / d}/${denom / d}"`;
+}
+
 const ISLAND_PROGRAMS = [
   { n: "Boxing ring + apron", w: 7.8, l: 7.8 },
   { n: "Breaking / dance circle", w: 12, l: 12 },
@@ -138,23 +174,46 @@ function computeNode(p) {
   };
 }
 
-function Field({ label, unit, value, min, max, step, onChange }) {
+function Field({ label, value, min, max, step, impStep, imp, kind = "len", onChange }) {
+  let sv = value,
+    smin = min,
+    smax = max,
+    sstep = step,
+    disp;
+  if (kind === "plain") {
+    disp = value;
+  } else if (!imp) {
+    disp = `${value} ${kind === "mm" ? "mm" : "m"}`;
+  } else if (kind === "mm") {
+    sv = +(value / 25.4).toFixed(4);
+    smin = min / 25.4;
+    smax = max / 25.4;
+    sstep = 0.125;
+    disp = inchOnly(value / 1000);
+  } else {
+    sv = +(value * IN_PER_M).toFixed(3);
+    smin = min * IN_PER_M;
+    smax = max * IN_PER_M;
+    sstep = impStep || 1;
+    disp = ftIn(value);
+  }
+  const back = (x) => {
+    if (kind === "plain" || !imp) return x;
+    return kind === "mm" ? +(x * 25.4).toFixed(2) : +(x / IN_PER_M).toFixed(4);
+  };
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontFamily: SANS, fontSize: 12, color: INK }}>{label}</span>
-        <span style={{ fontFamily: MONO, fontSize: 12, color: MAG }}>
-          {value}
-          <span style={{ color: RULE }}> {unit}</span>
-        </span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: MAG }}>{disp}</span>
       </div>
       <input
         type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        min={smin}
+        max={smax}
+        step={sstep}
+        value={sv}
+        onChange={(e) => onChange(back(parseFloat(e.target.value)))}
         style={{ width: "100%", accentColor: MAG, marginTop: 4 }}
       />
     </div>
@@ -193,11 +252,17 @@ function RoundaboutNodeCalculator() {
     showImagery: true,
     style: "clean",
     imgOpacity: 0.85,
+    units: "imp",
   });
   const [tab, setTab] = useState("node");
   const [tileState, setTileState] = useState("loading");
   const set = (k) => (v) => setP((s) => ({ ...s, [k]: v }));
   const r = useMemo(() => computeNode(p), [p]);
+  const imp = p.units === "imp";
+  const L = (m) => (imp ? ftIn(m) : m.toFixed(2));
+  const LU = imp ? "ft-in" : "m";
+  const A = (m2) => (imp ? Math.round(m2 * SQFT_PER_SQM).toLocaleString() : Math.round(m2).toLocaleString());
+  const AU = imp ? "ft²" : "m²";
 
   const fitIsland = (a, b) =>
     a * a + b * b <= r.seatingD * r.seatingD && Math.min(a, b) <= r.seatingD;
@@ -345,10 +410,34 @@ function RoundaboutNodeCalculator() {
               Inverted bowl sightline and capacity study
             </div>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 10, color: RULE, textAlign: "right" }}>
-            BREAK THE BOWL
-            <br />
-            SHEET 01 / SCALE LIVE
+          <div style={{ textAlign: "right" }}>
+            <div style={{ display: "flex", gap: 0, justifyContent: "flex-end", marginBottom: 6 }}>
+              {[
+                ["si", "Metric"],
+                ["imp", "ft-in"],
+              ].map(([id, t]) => (
+                <button
+                  key={id}
+                  onClick={() => set("units")(id)}
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 10,
+                    padding: "5px 12px",
+                    border: `1px solid ${p.units === id ? INK : RULE}`,
+                    background: p.units === id ? INK : "transparent",
+                    color: p.units === id ? FILM : INK,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: RULE }}>
+              BREAK THE BOWL
+              <br />
+              SHEET 01 / SCALE LIVE
+            </div>
           </div>
         </div>
 
@@ -381,11 +470,11 @@ function RoundaboutNodeCalculator() {
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", marginBottom: 12 }}>
                 Site
               </div>
-              <Field label="Inscribed circle diameter" unit="m" value={p.icd} min={10} max={300} step={0.5} onChange={set("icd")} />
-              <Field label="Circulatory roadway width" unit="m" value={p.w} min={4.5} max={40} step={0.25} onChange={set("w")} />
-              <Field label="Truck apron" unit="m" value={p.apron} min={0} max={5} step={0.25} onChange={set("apron")} />
-              <Field label="Facade setback" unit="m" value={p.setback} min={0} max={40} step={0.5} onChange={set("setback")} />
-              <Field label="Facade height" unit="m" value={p.facade} min={3} max={60} step={0.5} onChange={set("facade")} />
+              <Field label="Inscribed circle diameter" value={p.icd} min={10} max={300} step={0.5} impStep={12} imp={imp} onChange={set("icd")} />
+              <Field label="Circulatory roadway width" value={p.w} min={4.5} max={40} step={0.25} impStep={6} imp={imp} onChange={set("w")} />
+              <Field label="Truck apron" value={p.apron} min={0} max={5} step={0.25} impStep={3} imp={imp} onChange={set("apron")} />
+              <Field label="Facade setback" value={p.setback} min={0} max={40} step={0.5} impStep={12} imp={imp} onChange={set("setback")} />
+              <Field label="Facade height" value={p.facade} min={3} max={60} step={0.5} impStep={12} imp={imp} onChange={set("facade")} />
 
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", margin: "18px 0 10px" }}>
                 Basemap
@@ -491,16 +580,16 @@ function RoundaboutNodeCalculator() {
                 />
                 Show basemap
               </label>
-              <Field label="Basemap opacity" unit="" value={p.imgOpacity} min={0.15} max={1} step={0.05} onChange={set("imgOpacity")} />
+              <Field label="Basemap opacity" value={p.imgOpacity} min={0.15} max={1} step={0.05} kind="plain" onChange={set("imgOpacity")} />
 
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", margin: "18px 0 12px" }}>
                 Bank
               </div>
-              <Field label="Target C-value" unit="mm" value={p.targetC} min={30} max={150} step={5} onChange={set("targetC")} />
-              <Field label="Rows" unit="" value={p.rows} min={2} max={40} step={1} onChange={set("rows")} />
-              <Field label="Row depth" unit="m" value={p.rowDepth} min={0.7} max={1.1} step={0.05} onChange={set("rowDepth")} />
-              <Field label="Front row eye height" unit="m" value={p.eye1} min={0.9} max={3} step={0.05} onChange={set("eye1")} />
-              <Field label="Seat width" unit="m" value={p.seatW} min={0.45} max={0.62} step={0.01} onChange={set("seatW")} />
+              <Field label="Target C-value" value={p.targetC} min={30} max={150} step={5} kind="mm" imp={imp} onChange={set("targetC")} />
+              <Field label="Rows" value={p.rows} min={2} max={40} step={1} kind="plain" onChange={set("rows")} />
+              <Field label="Row depth" value={p.rowDepth} min={0.7} max={1.1} step={0.05} impStep={1} imp={imp} onChange={set("rowDepth")} />
+              <Field label="Front row eye height" value={p.eye1} min={0.9} max={3} step={0.05} impStep={1} imp={imp} onChange={set("eye1")} />
+              <Field label="Seat width" value={p.seatW} min={0.45} max={0.62} step={0.01} impStep={0.5} imp={imp} onChange={set("seatW")} />
 
               <div style={{ fontFamily: SANS, fontSize: 12, marginTop: 6 }}>Point of focus</div>
               <div style={{ display: "flex", gap: 0, marginTop: 6 }}>
@@ -570,8 +659,8 @@ function RoundaboutNodeCalculator() {
                   {[-1, 1].map((s) => (
                     <circle key={s} cx={X(s * focusX)} cy={Y(0)} r="3" fill={MAG} />
                   ))}
-                  {dim(-p.icd / 2, p.icd / 2, baseY + 22, `ICD ${p.icd.toFixed(1)} m`)}
-                  {dim(-r.islandD / 2, r.islandD / 2, baseY + 44, `island ${r.islandD.toFixed(1)} m`)}
+                  {dim(-p.icd / 2, p.icd / 2, baseY + 22, `ICD ${L(p.icd)}`)}
+                  {dim(-r.islandD / 2, r.islandD / 2, baseY + 44, `island ${L(r.islandD)}`)}
                   <text x={X(0)} y={Y(0) + 14} textAnchor="middle" fontFamily={MONO} fontSize="9" fill={RULE}>
                     centre island
                   </text>
@@ -653,9 +742,9 @@ function RoundaboutNodeCalculator() {
                       <br />
                       {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
                       <br />
-                      {(1 / pk).toFixed(3)} m per pixel
+                      {imp ? `${(FT_PER_M / pk).toFixed(3)} ft` : `${(1 / pk).toFixed(3)} m`} per pixel
                       <br />
-                      zoom {basemap.z} · source {basemap.mpp.toFixed(3)} m/px · {basemap.tiles.length} tile
+                      zoom {basemap.z} · source {imp ? (basemap.mpp * FT_PER_M).toFixed(3) + " ft/px" : basemap.mpp.toFixed(3) + " m/px"} · {basemap.tiles.length} tile
                       {basemap.tiles.length === 1 ? "" : "s"}
                       <br />
                       <span
@@ -670,7 +759,7 @@ function RoundaboutNodeCalculator() {
                           ? "basemap request failed"
                           : "basemap loading"}
                       </span>{" "}
-                      · build 7
+                      · build 8
                       <br />
                       {basemap.credit}
                     </div>
@@ -689,17 +778,17 @@ function RoundaboutNodeCalculator() {
                     Island too small for a bank — reduce roadway width or increase the inscribed circle.
                   </div>
                 )}
-                <Metric label="Ring circumference, centreline" value={r.ringCentre.toFixed(1)} unit="m" />
-                <Metric label="Island diameter" value={r.islandD.toFixed(1)} unit="m" />
+                <Metric label="Ring circumference, centreline" value={L(r.ringCentre)} unit={LU} />
+                <Metric label="Island diameter" value={L(r.islandD)} unit={LU} />
                 <Metric label="Seated capacity, inverted" value={r.cap.toLocaleString()} unit="seats" />
                 <Metric label="Rows achieved" value={r.rows.length} unit={`of ${p.rows}`} flag={r.rows.length < p.rows} />
-                <Metric label="Top deck height" value={r.top ? r.top.deck.toFixed(2) : "—"} unit="m" />
-                <Metric label="Steepest riser" value={r.maxRiser ? r.maxRiser.toFixed(3) : "—"} unit="m" flag={r.maxRiser > 0.55} />
+                <Metric label="Top deck height" value={r.top ? L(r.top.deck) : "—"} unit={LU} />
+                <Metric label="Steepest riser" value={r.maxRiser ? L(r.maxRiser) : "—"} unit={LU} flag={r.maxRiser > 0.55} />
                 <Metric label="Standing crowd, centre-stage mode" value={r.standing.toLocaleString()} unit="people" />
-                <Metric label="Track area" value={Math.round(r.trackArea).toLocaleString()} unit="m²" />
+                <Metric label="Track area" value={A(r.trackArea)} unit={AU} />
                 {r.maxRiser > 0.55 && (
                   <div style={{ fontFamily: SANS, fontSize: 11, color: AMB, marginTop: 8, lineHeight: 1.5 }}>
-                    Riser exceeds 0.55 m. Lower the target C-value, deepen the rows, or lift the front
+                    Riser exceeds {imp ? "1'-10\"" : "0.55 m"}. Lower the target C-value, deepen the rows, or lift the front
                     row further off the road.
                   </div>
                 )}
@@ -728,7 +817,9 @@ function RoundaboutNodeCalculator() {
                     <div key={x.n} style={{ fontFamily: SANS, fontSize: 11, padding: "3px 0" }}>
                       {x.n}{" "}
                       <span style={{ fontFamily: MONO, color: RULE }}>
-                        {x.w}×{x.l}
+                        {imp
+                          ? `${Math.round(x.w * FT_PER_M)}×${Math.round(x.l * FT_PER_M)} ft`
+                          : `${x.w}×${x.l} m`}
                       </span>
                     </div>
                   ))
@@ -744,7 +835,8 @@ function RoundaboutNodeCalculator() {
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", marginBottom: 8 }}>
                 Rake schedule
                 <span style={{ fontFamily: MONO, fontSize: 11, color: MAG, marginLeft: 10 }}>
-                  C = {p.targetC} mm held constant to the {p.focus === "far" ? "far" : "near"} kerb
+                  C = {imp ? inchOnly(p.targetC / 1000) : `${p.targetC} mm`} held constant to the{" "}
+                  {p.focus === "far" ? "far" : "near"} kerb
                 </span>
               </div>
               <div style={{ overflowX: "auto" }}>
@@ -752,11 +844,11 @@ function RoundaboutNodeCalculator() {
                   <thead>
                     <tr>
                       <th>Row</th>
-                      <th>Radius m</th>
-                      <th>D to focus m</th>
-                      <th>Riser m</th>
-                      <th>Deck m</th>
-                      <th>Eye m</th>
+                      <th>Radius {LU}</th>
+                      <th>D to focus {LU}</th>
+                      <th>Riser {LU}</th>
+                      <th>Deck {LU}</th>
+                      <th>Eye {LU}</th>
                       <th>Seats</th>
                     </tr>
                   </thead>
@@ -764,11 +856,11 @@ function RoundaboutNodeCalculator() {
                     {r.rows.map((row) => (
                       <tr key={row.i}>
                         <td>{row.i}</td>
-                        <td>{row.ro.toFixed(2)}</td>
-                        <td>{row.D.toFixed(2)}</td>
-                        <td style={{ color: row.riser > 0.55 ? AMB : INK }}>{row.riser.toFixed(3)}</td>
-                        <td>{row.deck.toFixed(2)}</td>
-                        <td>{row.eye.toFixed(2)}</td>
+                        <td>{L(row.ro)}</td>
+                        <td>{L(row.D)}</td>
+                        <td style={{ color: row.riser > 0.55 ? AMB : INK }}>{L(row.riser)}</td>
+                        <td>{L(row.deck)}</td>
+                        <td>{L(row.eye)}</td>
                         <td>{row.seats}</td>
                       </tr>
                     ))}
@@ -790,9 +882,9 @@ function RoundaboutNodeCalculator() {
               <table>
                 <thead>
                   <tr>
-                    <th>ICD m</th>
-                    <th>Island m</th>
-                    <th>Ring circumference m</th>
+                    <th>ICD {LU}</th>
+                    <th>Island {LU}</th>
+                    <th>Ring circumference {LU}</th>
                     <th>Seated</th>
                     <th>Standing</th>
                     <th>Ring program</th>
@@ -802,9 +894,9 @@ function RoundaboutNodeCalculator() {
                 <tbody>
                   {sweep.map((s) => (
                     <tr key={s.icd} style={{ background: s.icd === p.icd ? "rgba(176,36,106,0.07)" : "transparent" }}>
-                      <td style={{ color: MAG }}>{s.icd}</td>
-                      <td>{s.islandD.toFixed(1)}</td>
-                      <td>{s.circ.toFixed(0)}</td>
+                      <td style={{ color: MAG }}>{L(s.icd)}</td>
+                      <td>{L(s.islandD)}</td>
+                      <td>{L(s.circ)}</td>
                       <td>{s.cap > 0 ? s.cap.toLocaleString() : "—"}</td>
                       <td>{s.standing > 0 ? s.standing.toLocaleString() : "—"}</td>
                       <td style={{ fontFamily: SANS, textAlign: "left" }}>{s.ring ? s.ring.n : "—"}</td>
@@ -823,9 +915,10 @@ function RoundaboutNodeCalculator() {
 
         <div style={{ fontFamily: MONO, fontSize: 10, color: RULE, marginTop: 20, lineHeight: 1.7 }}>
           C-value computed row by row as C = h(n)·(D−T)/D − h(n−1), solved for the riser that holds the
-          target. Seat count applies a 0.85 factor for aisles and vomitories. Standing density at
-          0.40 m²/person sits inside the 0.3–0.5 m²/person range — check against the governing local
-          code before using it on a board.
+          target. Seat count applies a 0.85 factor for aisles and vomitories. Standing density at{" "}
+          {imp ? "4.3 ft²/person sits inside the 3.2–5.4 ft²/person" : "0.40 m²/person sits inside the 0.3–0.5 m²/person"}{" "}
+          range — check against the governing local code before using it on a board. All geometry is
+          computed in metric and converted for display.
         </div>
       </div>
     </div>
