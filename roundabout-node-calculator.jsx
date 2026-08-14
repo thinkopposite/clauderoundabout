@@ -52,6 +52,24 @@ const TILESETS = {
     credit: "© OpenStreetMap contributors, © CARTO",
     url: (z, x, y) => `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}@2x.png`,
   },
+  bare: {
+    n: "No labels",
+    max: 20,
+    credit: "© OpenStreetMap contributors, © CARTO",
+    url: (z, x, y) => `https://basemaps.cartocdn.com/light_nolabels/${z}/${x}/${y}@2x.png`,
+  },
+  voyager: {
+    n: "Voyager",
+    max: 20,
+    credit: "© OpenStreetMap contributors, © CARTO",
+    url: (z, x, y) => `https://basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`,
+  },
+  dark: {
+    n: "Dark",
+    max: 20,
+    credit: "© OpenStreetMap contributors, © CARTO",
+    url: (z, x, y) => `https://basemaps.cartocdn.com/dark_nolabels/${z}/${x}/${y}@2x.png`,
+  },
   street: {
     n: "Street",
     max: 19,
@@ -171,7 +189,6 @@ export default function RoundaboutNodeCalculator() {
     showImagery: true,
     style: "clean",
     imgOpacity: 0.85,
-    apiKey: "",
   });
   const [tab, setTab] = useState("node");
   const set = (k) => (v) => setP((s) => ({ ...s, [k]: v }));
@@ -230,37 +247,6 @@ export default function RoundaboutNodeCalculator() {
 
   const basemap = useMemo(() => {
     const cos = Math.cos((p.lat * Math.PI) / 180);
-    const key = p.apiKey.trim();
-    if (key) {
-      const z = Math.max(
-        1,
-        Math.min(21, Math.floor(Math.log2((156543.03392 * cos * 640) / (2 * frameR))))
-      );
-      const mpp = (156543.03392 * cos) / Math.pow(2, z) / 2;
-      const side = mpp * 1280 * pk;
-      const styles =
-        p.style === "satellite"
-          ? "&maptype=satellite"
-          : "&maptype=roadmap" +
-            ["feature:poi|visibility:off", "feature:transit|visibility:off"]
-              .map((s) => `&style=${encodeURIComponent(s)}`)
-              .join("");
-      return {
-        tiles: [
-          {
-            k: "g",
-            url: `https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=${z}&size=640x640&scale=2${styles}&key=${encodeURIComponent(key)}`,
-            x: PW / 2 - side / 2,
-            y: PW / 2 - side / 2,
-            size: side,
-          },
-        ],
-        credit: "Google",
-        z,
-        mpp,
-      };
-    }
-
     const ts = TILESETS[p.style] || TILESETS.clean;
     let z = Math.max(1, Math.min(ts.max, Math.ceil(Math.log2(156543.03392 * cos * pk))));
     let mpp, halfPx, cx, cy, tx0, tx1, ty0, ty1;
@@ -292,7 +278,7 @@ export default function RoundaboutNodeCalculator() {
       }
     }
     return { tiles, credit: ts.credit, z, mpp };
-  }, [p.lat, p.lng, p.apiKey, p.style, frameR, pk]);
+  }, [p.lat, p.lng, p.style, frameR, pk]);
 
   const sweep = SWEEP.map((icd) => {
     const q = computeNode({ ...p, icd });
@@ -447,13 +433,13 @@ export default function RoundaboutNodeCalculator() {
                   </label>
                 ))}
               </div>
-              <div style={{ display: "flex", gap: 0, marginTop: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
                 {Object.entries(TILESETS).map(([id, t]) => (
                   <button
                     key={id}
                     onClick={() => set("style")(id)}
                     style={{
-                      flex: 1,
+                      flex: "1 1 30%",
                       fontFamily: MONO,
                       fontSize: 10,
                       padding: "6px 2px",
@@ -487,26 +473,6 @@ export default function RoundaboutNodeCalculator() {
                 Show basemap
               </label>
               <Field label="Basemap opacity" unit="" value={p.imgOpacity} min={0.15} max={1} step={0.05} onChange={set("imgOpacity")} />
-              <label style={{ fontFamily: SANS, fontSize: 11, color: RULE, display: "block" }}>
-                Google Maps API key (optional)
-                <input
-                  type="password"
-                  value={p.apiKey}
-                  placeholder="leave blank to use keyless basemaps"
-                  onChange={(e) => set("apiKey")(e.target.value)}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    fontFamily: MONO,
-                    fontSize: 11,
-                    padding: "4px 5px",
-                    marginTop: 3,
-                    border: `1px solid ${RULE}`,
-                    background: FILM,
-                    color: INK,
-                  }}
-                />
-              </label>
 
               <div style={{ fontFamily: DISP, fontSize: 17, textTransform: "uppercase", margin: "18px 0 12px" }}>
                 Bank
