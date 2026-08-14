@@ -34,10 +34,13 @@ const RING_PROGRAMS = [
 const SWEEP = [12, 18, 25, 35, 50, 70, 100, 140];
 
 const SITES = [
-  { n: "Columbus Circle, New York", lat: 40.76808, lng: -73.98195, icd: 116, w: 18 },
-  { n: "Place Charles de Gaulle, Paris", lat: 48.87380, lng: 2.29500, icd: 240, w: 26 },
-  { n: "Piccadilly Circus, London", lat: 51.50999, lng: -0.13418, icd: 46, w: 12 },
-  { n: "Monument Circle, Indianapolis", lat: 39.76853, lng: -86.15806, icd: 104, w: 14 },
+  { n: "Columbus Circle", c: "New York", lat: 40.76808, lng: -73.98195, icd: 116, w: 18 },
+  { n: "Buckingham Fountain", c: "Chicago", lat: 41.87587, lng: -87.61895, icd: 100, w: 10 },
+  { n: "Piccadilly Circus", c: "London", lat: 51.50999, lng: -0.13418, icd: 46, w: 12 },
+  { n: "Place Charles de Gaulle", c: "Paris", lat: 48.87380, lng: 2.29500, icd: 240, w: 26 },
+  { n: "Ángel de la Independencia", c: "Mexico City", lat: 19.42678, lng: -99.16766, icd: 92, w: 12 },
+  { n: "Puerta de Alcalá", c: "Madrid", lat: 40.41988, lng: -3.68870, icd: 120, w: 14 },
+  { n: "Plaza de Mayo", c: "Buenos Aires", lat: -34.60815, lng: -58.37230, icd: 110, w: 12 },
 ];
 
 const MERC = 20037508.342789244;
@@ -185,7 +188,8 @@ export default function RoundaboutNodeCalculator() {
     seatW: 0.5,
     lat: 40.76808,
     lng: -73.98195,
-    site: "Columbus Circle, New York",
+    site: "Columbus Circle",
+    city: "New York",
     showImagery: true,
     style: "clean",
     imgOpacity: 0.85,
@@ -385,7 +389,15 @@ export default function RoundaboutNodeCalculator() {
                 <button
                   key={s.n}
                   onClick={() =>
-                    setP((v) => ({ ...v, lat: s.lat, lng: s.lng, icd: s.icd, w: s.w, site: s.n }))
+                    setP((v) => ({
+                      ...v,
+                      lat: s.lat,
+                      lng: s.lng,
+                      icd: s.icd,
+                      w: s.w,
+                      site: s.n,
+                      city: s.c,
+                    }))
                   }
                   style={{
                     display: "block",
@@ -393,6 +405,7 @@ export default function RoundaboutNodeCalculator() {
                     textAlign: "left",
                     fontFamily: MONO,
                     fontSize: 10,
+                    lineHeight: 1.45,
                     padding: "5px 8px",
                     marginBottom: 4,
                     border: `1px solid ${p.site === s.n ? MAG : RULE}`,
@@ -402,6 +415,7 @@ export default function RoundaboutNodeCalculator() {
                   }}
                 >
                   {s.n}
+                  <span style={{ display: "block", opacity: 0.7 }}>{s.c}</span>
                 </button>
               ))}
               <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
@@ -416,7 +430,7 @@ export default function RoundaboutNodeCalculator() {
                       step="0.00001"
                       value={p[kk]}
                       onChange={(e) =>
-                        setP((v) => ({ ...v, [kk]: parseFloat(e.target.value) || 0, site: "Custom location" }))
+                        setP((v) => ({ ...v, [kk]: parseFloat(e.target.value) || 0, site: "Custom location", city: "" }))
                       }
                       style={{
                         width: "100%",
@@ -628,7 +642,7 @@ export default function RoundaboutNodeCalculator() {
                       conventional bowl would wall off.
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 10, color: RULE, marginTop: 10, lineHeight: 1.6, borderTop: `1px solid ${RULE}`, paddingTop: 8 }}>
-                      {p.site}
+                      {p.site}{p.city ? `, ${p.city}` : ""}
                       <br />
                       {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
                       <br />
