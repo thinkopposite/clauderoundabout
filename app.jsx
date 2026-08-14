@@ -1,4 +1,4 @@
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 
 const INK = "#1B2420";
 const FILM = "#E3E6E3";
@@ -195,6 +195,7 @@ function RoundaboutNodeCalculator() {
     imgOpacity: 0.85,
   });
   const [tab, setTab] = useState("node");
+  const [tileState, setTileState] = useState("loading");
   const set = (k) => (v) => setP((s) => ({ ...s, [k]: v }));
   const r = useMemo(() => computeNode(p), [p]);
 
@@ -283,6 +284,10 @@ function RoundaboutNodeCalculator() {
     }
     return { tiles, credit: ts.credit, z, mpp };
   }, [p.lat, p.lng, p.style, frameR, pk]);
+
+  useEffect(() => {
+    setTileState("loading");
+  }, [p.style, p.lat, p.lng]);
 
   const sweep = SWEEP.map((icd) => {
     const q = computeNode({ ...p, icd });
@@ -596,6 +601,8 @@ function RoundaboutNodeCalculator() {
                             width={t.size + 0.5}
                             height={t.size + 0.5}
                             preserveAspectRatio="none"
+                            onLoad={() => setTileState("ok")}
+                            onError={() => setTileState("blocked")}
                           />
                         ))}
                       </g>
@@ -650,6 +657,20 @@ function RoundaboutNodeCalculator() {
                       <br />
                       zoom {basemap.z} · source {basemap.mpp.toFixed(3)} m/px · {basemap.tiles.length} tile
                       {basemap.tiles.length === 1 ? "" : "s"}
+                      <br />
+                      <span
+                        style={{
+                          color:
+                            tileState === "ok" ? CYAN : tileState === "blocked" ? AMB : RULE,
+                        }}
+                      >
+                        {tileState === "ok"
+                          ? "basemap loaded"
+                          : tileState === "blocked"
+                          ? "basemap request failed"
+                          : "basemap loading"}
+                      </span>{" "}
+                      · build 7
                       <br />
                       {basemap.credit}
                     </div>
