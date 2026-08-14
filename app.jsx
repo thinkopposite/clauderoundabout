@@ -213,26 +213,54 @@ function RoundaboutNodeCalculator() {
         Math.min(21, Math.floor(Math.log2((156543.03392 * cos * 640) / (2 * frameR))))
       );
       const mpp = (156543.03392 * cos) / Math.pow(2, z) / 2;
+      const side = mpp * 1280 * pk;
       return {
-        url: `https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=${z}&size=640x640&scale=2&maptype=satellite&key=${encodeURIComponent(key)}`,
-        ground: mpp * 1280,
+        tiles: [
+          {
+            k: "g",
+            url: `https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=${z}&size=640x640&scale=2&maptype=satellite&key=${encodeURIComponent(key)}`,
+            x: PW / 2 - side / 2,
+            y: PW / 2 - side / 2,
+            size: side,
+          },
+        ],
         credit: "Imagery: Google",
+        z,
+        mpp,
       };
     }
-    const halfMerc = frameR / cos;
-    const mx = toMercX(p.lng);
-    const my = toMercY(p.lat);
-    const bbox = [mx - halfMerc, my - halfMerc, mx + halfMerc, my + halfMerc]
-      .map((v) => v.toFixed(2))
-      .join(",");
-    return {
-      url: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=1024,1024&format=jpg&f=image`,
-      ground: frameR * 2,
-      credit: "Imagery: Esri, Maxar, Earthstar Geographics",
-    };
-  }, [p.lat, p.lng, p.apiKey, frameR]);
 
-  const imgSide = basemap.ground * pk;
+    let z = Math.max(1, Math.min(19, Math.ceil(Math.log2(156543.03392 * cos * pk))));
+    let mpp, halfPx, cx, cy, tx0, tx1, ty0, ty1;
+    for (;;) {
+      const worldPx = 256 * Math.pow(2, z);
+      mpp = (156543.03392 * cos) / Math.pow(2, z);
+      cx = ((p.lng + 180) / 360) * worldPx;
+      const s = Math.sin((p.lat * Math.PI) / 180);
+      cy = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * worldPx;
+      halfPx = frameR / mpp;
+      tx0 = Math.floor((cx - halfPx) / 256);
+      tx1 = Math.floor((cx + halfPx) / 256);
+      ty0 = Math.floor((cy - halfPx) / 256);
+      ty1 = Math.floor((cy + halfPx) / 256);
+      if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 36 || z <= 1) break;
+      z -= 1;
+    }
+    const svgPerTilePx = pk * mpp;
+    const tiles = [];
+    for (let tx = tx0; tx <= tx1; tx++) {
+      for (let ty = ty0; ty <= ty1; ty++) {
+        tiles.push({
+          k: `${z}/${tx}/${ty}`,
+          url: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}`,
+          x: PW / 2 + (tx * 256 - cx) * svgPerTilePx,
+          y: PW / 2 + (ty * 256 - cy) * svgPerTilePx,
+          size: 256 * svgPerTilePx,
+        });
+      }
+    }
+    return { tiles, credit: "Imagery: Esri, Maxar, Earthstar Geographics", z, mpp };
+  }, [p.lat, p.lng, p.apiKey, frameR, pk]);
 
   const sweep = SWEEP.map((icd) => {
     const q = computeNode({ ...p, icd });
@@ -526,16 +554,19 @@ function RoundaboutNodeCalculator() {
                       </clipPath>
                     </defs>
                     {p.showImagery && (
-                      <image
-                        href={basemap.url}
-                        x={PW / 2 - imgSide / 2}
-                        y={PW / 2 - imgSide / 2}
-                        width={imgSide}
-                        height={imgSide}
-                        preserveAspectRatio="none"
-                        clipPath="url(#planFrame)"
-                        opacity={p.imgOpacity}
-                      />
+                      <g clipPath="url(#planFrame)" opacity={p.imgOpacity}>
+                        {basemap.tiles.map((t) => (
+                          <image
+                            key={t.k}
+                            href={t.url}
+                            x={t.x}
+                            y={t.y}
+                            width={t.size + 0.5}
+                            height={t.size + 0.5}
+                            preserveAspectRatio="none"
+                          />
+                        ))}
+                      </g>
                     )}
                     <circle cx={PW / 2} cy={PW / 2} r={frameR * pk} fill="none" stroke={RULE} strokeWidth="0.7" strokeDasharray="4 4" />
                     <circle cx={PW / 2} cy={PW / 2} r={(p.icd / 2) * pk} fill={MAG} fillOpacity="0.12" stroke={MAG} strokeWidth="1.1" />
@@ -584,6 +615,9 @@ function RoundaboutNodeCalculator() {
                       {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
                       <br />
                       {(1 / pk).toFixed(3)} m per pixel
+                      <br />
+                      zoom {basemap.z} · source {basemap.mpp.toFixed(3)} m/px · {basemap.tiles.length} tile
+                      {basemap.tiles.length === 1 ? "" : "s"}
                       <br />
                       {basemap.credit}
                     </div>
