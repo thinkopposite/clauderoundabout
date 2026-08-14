@@ -72,11 +72,7 @@ const SWEEP = [12, 18, 25, 35, 50, 70, 100, 140];
 const SITES = [
   { n: "Columbus Circle", c: "New York", lat: 40.76808, lng: -73.98195, icd: 116, w: 18 },
   { n: "Buckingham Fountain", c: "Chicago", lat: 41.87587, lng: -87.61895, icd: 100, w: 10 },
-  { n: "Piccadilly Circus", c: "London", lat: 51.50999, lng: -0.13418, icd: 46, w: 12 },
   { n: "Place Charles de Gaulle", c: "Paris", lat: 48.87380, lng: 2.29500, icd: 240, w: 26 },
-  { n: "Ángel de la Independencia", c: "Mexico City", lat: 19.42678, lng: -99.16766, icd: 92, w: 12 },
-  { n: "Puerta de Alcalá", c: "Madrid", lat: 40.41988, lng: -3.68870, icd: 120, w: 14 },
-  { n: "Plaza de Mayo", c: "Buenos Aires", lat: -34.60815, lng: -58.37230, icd: 110, w: 12 },
 ];
 
 const MERC = 20037508.342789244;
@@ -755,7 +751,7 @@ function RoundaboutNodeCalculator() {
                           ? "basemap request failed"
                           : "basemap loading"}
                       </span>{" "}
-                      · build 9
+                      · build 10
                       <br />
                       {basemap.credit}
                     </div>
