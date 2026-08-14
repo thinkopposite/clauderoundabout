@@ -1,4 +1,4 @@
-const { useState, useMemo } = React;
+import React, { useState, useMemo } from "react";
 
 const INK = "#1B2420";
 const FILM = "#E3E6E3";
@@ -129,7 +129,7 @@ function Metric({ label, value, unit, flag }) {
   );
 }
 
-function RoundaboutNodeCalculator() {
+export default function RoundaboutNodeCalculator() {
   const [p, setP] = useState({
     icd: 116,
     w: 18,
@@ -255,7 +255,7 @@ function RoundaboutNodeCalculator() {
 
   return (
     <div style={{ background: FILM, minHeight: "100vh", color: INK, fontFamily: SANS }}>
-      <style>{`
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
         input[type=range]{height:16px}
         .plate{background:${FILM2};border:1px solid ${RULE}}
         table{border-collapse:collapse;width:100%}
@@ -744,6 +744,3 @@ function RoundaboutNodeCalculator() {
     </div>
   );
 }
-
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<RoundaboutNodeCalculator />);
