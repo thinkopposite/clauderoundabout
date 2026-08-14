@@ -70,8 +70,24 @@ const RING_PROGRAMS = [
 const SWEEP = [12, 18, 25, 35, 50, 70, 100, 140];
 
 const SEATING = [
-  { id: "bleacher", n: "Bleachers", sub: '30" tread · 12" riser · 20" seat', rowDepth: 0.762, riser: 0.3048, seatW: 0.508 },
-  { id: "chair", n: "Individual chairs", sub: '36" tread · 12" riser · 22" seat', rowDepth: 0.9144, riser: 0.3048, seatW: 0.5588 },
+  {
+    id: "bleacher",
+    n: "Bleachers",
+    sub: '30" tread · 12" riser · 20" seat · 5\'-8" eye',
+    rowDepth: 0.762,
+    riser: 0.3048,
+    seatW: 0.508,
+    eye1: 1.7272,
+  },
+  {
+    id: "chair",
+    n: "Individual chairs",
+    sub: '36" tread · 12" riser · 22" seat · 5\'-8" eye',
+    rowDepth: 0.9144,
+    riser: 0.3048,
+    seatW: 0.5588,
+    eye1: 1.7272,
+  },
 ];
 
 const SITES = [
@@ -254,7 +270,7 @@ function RoundaboutNodeCalculator() {
     targetC: 90,
     rows: 14,
     rowDepth: 0.762,
-    eye1: 1.4,
+    eye1: 1.7272,
     seatW: 0.508,
     lat: 40.76808,
     lng: -73.98195,
@@ -602,6 +618,7 @@ function RoundaboutNodeCalculator() {
                       rowDepth: s.rowDepth,
                       riser: s.riser,
                       seatW: s.seatW,
+                      eye1: s.eye1,
                       bankMode: "riser",
                     }))
                   }
@@ -654,7 +671,7 @@ function RoundaboutNodeCalculator() {
               )}
               <Field label="Rows" value={p.rows} min={2} max={40} step={1} kind="plain" onChange={set("rows")} />
               <Field label="Tread / row depth" value={p.rowDepth} min={0.6} max={1.2} step={0.01} impStep={1} imp={imp} onChange={(v) => setP((s) => ({ ...s, rowDepth: v, seatType: "custom" }))} />
-              <Field label="Front row eye height" value={p.eye1} min={0.9} max={3} step={0.05} impStep={1} imp={imp} onChange={set("eye1")} />
+              <Field label="Front row eye height" value={p.eye1} min={0.9} max={3} step={0.01} impStep={1} imp={imp} onChange={(v) => setP((s) => ({ ...s, eye1: v, seatType: "custom" }))} />
               <Field label="Seat width" value={p.seatW} min={0.4} max={0.65} step={0.005} impStep={0.5} imp={imp} onChange={(v) => setP((s) => ({ ...s, seatW: v, seatType: "custom" }))} />
 
               <div style={{ fontFamily: SANS, fontSize: 12, marginTop: 6 }}>Point of focus</div>
@@ -825,7 +842,7 @@ function RoundaboutNodeCalculator() {
                           ? "basemap request failed"
                           : "basemap loading"}
                       </span>{" "}
-                      · build 11
+                      · build 12
                       <br />
                       {basemap.credit}
                     </div>
